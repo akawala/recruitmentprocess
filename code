@@ -1,0 +1,64 @@
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
+from sklearn.preprocessing import LabelEncoder
+from sklearn.pipeline import Pipeline
+
+# Wczytanie danych z pliku "data.csv"
+data = pd.read_csv("data.csv")
+
+# Kodowanie etykiet klas
+label_encoder = LabelEncoder()
+data["language_code"] = label_encoder.fit_transform(data["language"])
+
+# Grupowanie danych względem wartości "proj_id"
+grouped_data = data.groupby("proj_id")
+
+# Tworzenie listy plików dla każdego projektu
+project_files = {}
+for proj_id, group in grouped_data:
+    file_code = group["file_body"].str.cat(sep="\n")
+    project_files[proj_id] = file_code
+
+# Przygotowanie danych do klasyfikacji
+X = list(project_files.values())
+y = list(grouped_data.first()["language_code"])
+
+# Podział danych na zbiór treningowy i testowy
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+
+# Definicja modelu i pipeline
+model = Pipeline([
+    ('vectorizer', TfidfVectorizer()),
+    ('classifier', MultinomialNB())
+])
+
+# Budowa modelu i klasyfikacja języka programowania
+model.fit(X_train, y_train)
+
+# Przewidywanie języka dla każdego pliku w teście
+y_pred = model.predict(X_test)
+
+# Wyniki klasyfikacji
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred, average='weighted')
+recall = recall_score(y_test, y_pred, average='weighted')
+f1 = f1_score(y_test, y_pred, average='weighted')
+
+print("Dokładność klasyfikacji: {:.2f}%".format(accuracy * 100))
+print("Precyzja klasyfikacji: {:.2f}".format(precision))
+print("Czułość klasyfikacji: {:.2f}".format(recall))
+print("F1-score klasyfikacji: {:.2f}".format(f1))
+
+# Raport klasyfikacji
+print("\nRaport klasyfikacji:")
+print(classification_report(y_test, y_pred, target_names=label_encoder.classes_))
+
+# Informacje o ilości unikatowych projektów i ilości plików dla każdego projektu
+num_projects = len(grouped_data)
+num_files_per_project = grouped_data.size()
+print("\nLiczba unikatowych projektów: {}".format(num_projects))
+print("Liczba plików dla każdego projektu:")
+print(num_files_per_project)
